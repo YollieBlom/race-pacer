@@ -30,7 +30,7 @@
      segments   (optional) one entry per km: title, surface, cue, rpe
    ===================================================================== */
 
-window.LEADERBOARD_URL = ""; // paste your new Google Apps Script web app URL here (see SETUP.txt)
+window.LEADERBOARD_URL = "https://script.google.com/macros/s/AKfycbwigsHxdzNvrx1_YdehnBkAiUMumAELNk_nWtRYYV42exLESbKCPsqdnN6p1ctjxSd7/exec"; // paste your new Google Apps Script web app URL here (see SETUP.txt)
 
 window.RACES = [
   {
