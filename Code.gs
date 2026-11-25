@@ -70,6 +70,24 @@ function blogSheet_() {
   return sh;
 }
 
+/* ---------- NEWSLETTER ----------
+ * The "Newsletter" tab: one sign-up per row.
+ * joined | name | email | source | status
+ * status starts as "subscribed". Type "unsubscribed" if someone asks to be taken off.
+ * Download as CSV (File > Download) to move the list to Brevo or Mailchimp later.
+ */
+function newsSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName('Newsletter');
+  if (!sh) {
+    sh = ss.insertSheet('Newsletter');
+    sh.getRange(1, 1, 1, 5).setValues([['joined', 'name', 'email', 'source', 'status']]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+    sh.getRange('A:E').setNumberFormat('@');
+  }
+  return sh;
+}
+
 function driveImage_(url) {
   const u = String(url || '').trim();
   const m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]{20,})/);
@@ -127,6 +145,7 @@ function doGet(e) {
  *  { action:'add_goal',   race, id, name, club, distance, goalTime }
  *  { action:'log_actual', race, id, actualTime }
  *  { action:'route_request', race, date, distances, place, name, email, note, gpxName, gpx }
+ *  { action:'newsletter', name, email, source }
  */
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -173,6 +192,25 @@ function doPost(e) {
         fileUrl = folder.createFile(fname, gpx, 'application/gpx+xml').getUrl();
       }
       requests_().appendRow([now, race, date, clean_(body.distances, 40), place, clean_(body.name, 40), clean_(body.email, 80), clean_(body.note, 300), fileUrl, 'new']);
+      return json_({ ok: true });
+    }
+
+    if (body.action === 'newsletter') {
+      const email = clean_(body.email, 120).toLowerCase();
+      if (!/^[^\s@=+\-][^\s@]*@[^\s@]+\.[^\s@]{2,}$/.test(email)) return json_({ ok: false, error: 'Please check your email address.' });
+      const ns = newsSheet_();
+      const last = ns.getLastRow();
+      if (last > 1) {
+        const emails = ns.getRange(2, 3, last - 1, 1).getDisplayValues();
+        for (let i = 0; i < emails.length; i++) {
+          if (String(emails[i][0]).toLowerCase() === email) {
+            ns.getRange(i + 2, 5).setValue('subscribed');
+            return json_({ ok: true, already: true });
+          }
+        }
+      }
+      const name = clean_(body.name, 40).replace(/^[=+\-@]+/, '');
+      ns.appendRow([now, name, email, clean_(body.source, 40).replace(/^[=+\-@]+/, ''), 'subscribed']);
       return json_({ ok: true });
     }
 
