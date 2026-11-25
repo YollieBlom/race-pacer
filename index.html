@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Race Pacer · The Runners Playground</title>
+<meta name="theme-color" content="#2EC4B6">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* VOICE: playful race-day coach — bright, chunky, encouraging
+   IDEA: a race bib + wrist band: the plan you pin on and run with
+   PICTURE: the course profile coloured by gradient, your pace riding on it
+   COLOUR and TYPE: turquoise / yellow / pink on white, navy ink; Fredoka + Nunito
+   LAYOUT: race header band, then Plan | Course | Splits | Leaderboard (tabs on phones) */
+:root{--tq:#2EC4B6;--tq-l:#E6FAF8;--tq-d:#0B7A70;--ye:#FFD23F;--ye-l:#FFF6D1;--pk:#FF5C8A;--pk-l:#FFE3EC;--pk-d:#B0204F;--ink:#0F2236;--slate:#3D4F63;--mist:#CFE3F2;--line:3px solid var(--ink);color-scheme:light}
+*{box-sizing:border-box;min-width:0}
+[hidden]{display:none !important}
+html{scroll-padding-top:120px}
+body{margin:0;background:#F3FBFA;color:var(--ink);font:16px/1.5 'Nunito',system-ui,sans-serif;overflow-x:clip}
+h1,h2,h3{font-family:'Fredoka',sans-serif;line-height:1.08;margin:0;text-wrap:balance}
+a{color:var(--ink)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--pk);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+/* shared menu */
+.trp-nav{background:#fff;border-bottom:var(--line)}
+.trp-nav .in{max-width:1240px;margin:0 auto;padding:8px 14px;display:flex;align-items:center;gap:12px;justify-content:space-between}
+.trp-logo{display:flex;align-items:center;gap:8px;text-decoration:none;font:700 17px/1 'Fredoka',sans-serif;white-space:nowrap}
+.trp-logo b{color:#D12A5C;font-weight:700}
+.trp-links{display:flex;gap:4px;overflow-x:auto;white-space:nowrap;scrollbar-width:none;font-weight:800;font-size:14px}
+.trp-links::-webkit-scrollbar{display:none}
+.trp-links a{flex:none;text-decoration:none;padding:9px 12px;border-radius:999px;min-height:40px;display:inline-flex;align-items:center}
+.trp-links a:hover{background:var(--tq-l)}
+.trp-links a[aria-current=page]{background:var(--ye);border:2px solid var(--ink);padding:7px 10px}
+@media(max-width:560px){.trp-logo span{display:none}}
+/* race header */
+.race{background:var(--tq);border-bottom:var(--line)}
+.race .in{max-width:1240px;margin:0 auto;padding:20px 16px 22px;display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));align-items:end}
+.race h1{font-size:clamp(30px,4.6vw,48px)}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-weight:800;font-size:14px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:2px solid var(--ink);border-radius:999px;background:#fff;font-weight:800;font-size:14px}
+.pill.ye{background:var(--ye)}.pill.pk{background:var(--pk)}.pill.ink{background:var(--ink);color:#fff}
+.picker{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;align-items:center}
+.seg{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;border:var(--line);border-radius:18px;background:#fff}
+.seg button{min-height:44px;padding:8px 16px;border:0;border-radius:13px;background:none;font-weight:800;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--ink);color:#fff}
+.seg.sm button{min-height:36px;padding:6px 12px;font-size:14px}
+select.race-sel{min-height:48px;padding:8px 14px;border:var(--line);border-radius:16px;background:#fff;font-weight:800;max-width:100%}
+.notice{max-width:1240px;margin:14px auto 0;padding:0 16px}
+.notice div{background:var(--ye-l);border:2px solid var(--ink);border-radius:16px;padding:10px 14px;font-weight:700;font-size:15px}
+/* tabs */
+.tabs{position:sticky;top:0;z-index:20;background:#F3FBFA;border-bottom:2px solid var(--mist);display:none}
+.tabs .in{max-width:1240px;margin:0 auto;padding:8px 12px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.tabs button{min-height:44px;padding:0 2px;border:2px solid var(--ink);border-radius:14px;background:#fff;font-weight:800;font-size:14px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tabs button[aria-selected=true]{background:var(--ye)}
+/* layout */
+main{max-width:1240px;margin:0 auto;padding:18px 16px 60px;display:grid;gap:20px;grid-template-columns:minmax(0,380px) minmax(0,1fr);align-items:start}
+#p-plan{grid-row:span 2}
+#p-board{grid-column:1/-1}
+@media(max-width:980px){main{grid-template-columns:minmax(0,1fr)}#p-plan{grid-row:auto}.tabs{display:block}.panel[data-hide=true]{display:none}}
+.card{background:#fff;border:var(--line);border-radius:24px;padding:18px;box-shadow:6px 6px 0 var(--ink)}
+.card+.card{margin-top:20px}
+.card h2{font-size:24px;margin-bottom:12px}
+.label{display:block;font-weight:800;font-size:14px;margin:12px 0 6px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.hms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.step{display:grid;grid-template-columns:36px minmax(0,1fr) 36px;border:var(--line);border-radius:14px;overflow:hidden;background:#fff}
+.step button{border:0;background:var(--tq-l);font-weight:900;font-size:18px;cursor:pointer;min-height:44px}
+.step input{border:0;text-align:center;font:800 20px 'Nunito';width:100%;padding:6px 0;background:#fff}
+.step small{display:block}
+.pace-row{display:flex;align-items:center;gap:8px}.pace-row input{width:72px !important;text-align:center;font-size:20px !important;font-weight:800 !important}.pace-row b{font:700 24px 'Fredoka'}
+.hms span{display:block;text-align:center;font-size:12px;font-weight:800;color:var(--slate);margin-top:3px}
+input[type=text],input[type=number].plain{width:100%;min-height:44px;padding:8px 12px;border:var(--line);border-radius:14px;background:#fff;font-weight:700;font-size:16px}
+input[type=range]{width:100%;accent-color:var(--pk);height:28px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{min-height:40px;padding:6px 12px;border:2px solid var(--ink);border-radius:999px;background:#fff;font-weight:800;font-size:14px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--pk)}
+.chip.tq[aria-pressed=true]{background:var(--tq)}
+.big{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.big div{flex:1 1 130px;background:var(--ink);color:#fff;border-radius:16px;padding:10px 12px}
+.big b{display:block;font:700 22px 'Fredoka';color:var(--ye);white-space:nowrap}
+.big span{font-size:13px;font-weight:700;color:var(--mist)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:10px 18px;border:var(--line);border-radius:999px;background:#fff;font-weight:800;text-decoration:none;cursor:pointer;box-shadow:3px 3px 0 var(--ink)}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.btn.dark{background:var(--ink);color:#fff;box-shadow:3px 3px 0 var(--ye)}
+.btn.pk{background:var(--pk)}.btn.ye{background:var(--ye)}.btn.tq{background:var(--tq)}
+.btn.wa{background:#25D366}
+.btn.sm{min-height:40px;padding:6px 14px;font-size:14px}
+.muted{color:var(--slate);font-size:14px}
+/* KPIs */
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:16px}
+.kpi{background:#fff;border:2px solid var(--ink);border-radius:16px;padding:10px 12px}
+.kpi b{display:block;font:700 22px 'Fredoka';white-space:nowrap}
+.kpi span{display:block;font-size:13px;font-weight:700;color:var(--slate)}
+.kpi.hl{background:var(--ye-l)}
+/* chart */
+.chart-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center;margin-bottom:10px}
+.chart{position:relative;height:clamp(220px,34vw,300px);border:2px solid var(--ink);border-radius:16px;background:linear-gradient(#fff,#F3FBFA);touch-action:pan-y}
+.chart.sculpt{touch-action:none;cursor:ns-resize}
+.chart canvas{position:absolute;inset:0;width:100%;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;font-weight:800;margin-top:8px}
+.legend i{display:inline-block;width:18px;height:5px;border-radius:3px;vertical-align:middle;margin-right:5px}
+.tele{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));margin-top:12px}
+.tele div{background:var(--tq-l);border-radius:12px;padding:8px 10px}
+.tele b{display:block;font:700 18px 'Fredoka';white-space:nowrap}
+.tele span{font-size:12px;font-weight:800;color:var(--slate)}
+.banner{margin-top:12px;border:2px solid var(--ink);border-radius:16px;padding:12px 14px;background:var(--pk-l)}
+.banner h3{font-size:20px}
+/* tables */
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{font-size:12px;text-transform:none;font-weight:900;color:var(--slate);text-align:right;padding:8px 8px;border-bottom:2px solid var(--ink);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid var(--mist);text-align:right;white-space:nowrap}
+th:nth-child(2),td:nth-child(2){text-align:left;white-space:normal;min-width:210px}
+th:first-child,td:first-child{text-align:left}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--tq-l)}
+tr.sel{background:var(--ye-l) !important}
+tr.turn td{background:var(--pk-l)}
+.up{color:var(--pk-d);font-weight:800}.down{color:var(--tq-d);font-weight:800}
+.cue{display:block;font-size:13px;color:var(--slate);margin-top:2px}
+.surf{display:inline-block;font-size:11px;font-weight:900;padding:1px 7px;border-radius:999px;border:1.5px solid var(--ink);margin-right:4px}
+.rpe{display:inline-block;width:46px;height:7px;background:var(--mist);border-radius:4px;overflow:hidden;vertical-align:middle;margin-left:4px}
+.rpe i{display:block;height:100%;background:var(--pk)}
+@media(max-width:640px){.hide-sm{display:none}}
+/* leaderboard */
+.lb-grid{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));align-items:start}
+.lb td:nth-child(2){min-width:120px}
+.lb tbody tr{cursor:default}
+.club{display:inline-block;font-size:12px;font-weight:800;background:var(--tq-l);border:1.5px solid var(--tq-d);border-radius:999px;padding:0 8px;margin-top:2px}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-weight:900;font-size:13px;border:1.5px solid var(--ink)}
+.badge.good{background:var(--tq-l)}.badge.slow{background:var(--ye-l)}
+.medal{display:inline-flex;width:30px;height:30px;border-radius:50%;align-items:center;justify-content:center;font-weight:900;border:2px solid var(--ink)}
+/* modals */
+.modal{position:fixed;inset:0;background:rgba(15,34,54,.6);display:none;align-items:flex-end;justify-content:center;z-index:60;padding:0}
+.modal.open{display:flex}
+.modal .box{background:#fff;border:var(--line);border-radius:24px 24px 0 0;padding:20px;width:min(560px,100%);max-height:90vh;overflow:auto}
+@media(min-width:640px){.modal{align-items:center;padding:16px}.modal .box{border-radius:24px}}
+textarea{width:100%;min-height:220px;border:2px solid var(--ink);border-radius:14px;padding:10px;font:14px/1.45 'Nunito'}
+.band{border:3px dashed var(--ink);border-radius:16px;padding:12px}
+.band table{font-size:14px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 18px;border-radius:14px;font-weight:800;z-index:80;display:none;max-width:90vw;border:2px solid var(--ye)}
+.toast.show{display:block}
+@media print{body *{visibility:hidden}#band-print,#band-print *{visibility:visible}#band-print{position:absolute;left:0;top:0;width:100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<nav class="trp-nav" aria-label="Runners Playground"><div class="in">
+ <a class="trp-logo" id="home-link" href="https://yollieblom.github.io/runners-playground/" aria-label="The Runners Playground home"><svg width="34" height="34" viewBox="0 0 44 44" aria-hidden="true"><rect x="3" y="9" width="38" height="26" rx="13" fill="none" stroke="#2EC4B6" stroke-width="5"/><rect x="11" y="16" width="22" height="12" rx="6" fill="#FFD23F" stroke="#0F2236" stroke-width="2.5"/><circle cx="34" cy="10" r="5" fill="#FF5C8A" stroke="#0F2236" stroke-width="2.5"/></svg><span>The Runners <b>Playground</b></span></a>
+ <div class="trp-links">
+  <a href="https://yollieblom.github.io/runners-playground/">Home</a>
+  <a href="https://yollieblom.github.io/runners-playground/#calculators">Calculators</a>
+  <a href="https://yollieblom.github.io/runners-playground/#diary">Run Diary</a>
+  <a href="./" aria-current="page">Race Pacers</a>
+  <a href="https://yollieblom.github.io/runners-playground/#challenges">Challenges</a>
+ </div>
+</div></nav>
+
+<header class="race">
+ <div class="in">
+  <div>
+   <span class="pill ye" id="r-status">Race pacer</span>
+   <h1 id="r-name" style="margin-top:10px">Race</h1>
+   <div class="meta" id="r-meta"></div>
+  </div>
+  <div class="picker">
+   <label class="sr" for="race-sel" style="position:absolute;width:1px;height:1px;overflow:hidden">Choose a race</label>
+   <select id="race-sel" class="race-sel"></select>
+   <div class="seg" id="dist-seg" role="group" aria-label="Distance"></div>
+   <div class="seg sm" id="watch-seg" role="group" aria-label="Distance on your watch" hidden></div>
+  </div>
+ </div>
+</header>
+<div class="notice" id="r-notice" hidden><div></div></div>
+
+<div class="tabs"><div class="in" role="tablist" aria-label="Sections">
+ <button role="tab" data-tab="p-plan" aria-selected="true">Plan</button>
+ <button role="tab" data-tab="p-course" aria-selected="false">Course</button>
+ <button role="tab" data-tab="p-splits" aria-selected="false">Splits</button>
+ <button role="tab" data-tab="p-board" aria-selected="false">Leaders</button>
+</div></div>
+
+<main>
+ <!-- PLAN -->
+ <section class="panel" id="p-plan" aria-label="Your plan">
+  <div class="card">
+   <h2>Your goal</h2>
+   <span class="label">Finish time</span>
+   <div class="hms">
+    <div><div class="step"><button type="button" data-st="h" data-d="-1" aria-label="Hour down">−</button><input id="g-h" inputmode="numeric" aria-label="Hours"><button type="button" data-st="h" data-d="1" aria-label="Hour up">+</button></div><span>hours</span></div>
+    <div><div class="step"><button type="button" data-st="m" data-d="-1" aria-label="Minute down">−</button><input id="g-m" inputmode="numeric" aria-label="Minutes"><button type="button" data-st="m" data-d="1" aria-label="Minute up">+</button></div><span>min</span></div>
+    <div><div class="step"><button type="button" data-st="s" data-d="-5" aria-label="5 seconds down">−</button><input id="g-s" inputmode="numeric" aria-label="Seconds"><button type="button" data-st="s" data-d="5" aria-label="5 seconds up">+</button></div><span>sec</span></div>
+   </div>
+   <span class="label">Or set your average pace (min/km)</span>
+   <div class="pace-row">
+    <input id="p-m" class="plain" type="text" inputmode="numeric" maxlength="2" aria-label="Pace minutes">
+    <b>:</b>
+    <input id="p-s" class="plain" type="text" inputmode="numeric" maxlength="2" aria-label="Pace seconds">
+    <span class="muted" style="font-weight:800">/km</span>
+   </div>
+   <div class="chips" style="margin-top:8px">
+    <button type="button" class="chip" data-nudge="-5" aria-label="5 seconds faster">−5s</button>
+    <button type="button" class="chip" data-nudge="-1" aria-label="1 second faster">−1s</button>
+    <button type="button" class="chip" data-nudge="1" aria-label="1 second slower">+1s</button>
+    <button type="button" class="chip" data-nudge="5" aria-label="5 seconds slower">+5s</button>
+   </div>
+   <input type="range" id="p-slider" min="180" max="900" step="1" aria-label="Pace slider">
+   <span class="label">Quick goals</span>
+   <div class="chips" id="goal-chips"></div>
+   <div class="big">
+    <div><b id="o-pace" class="num">–</b><span>avg pace /km</span></div>
+    <div><b id="o-speed" class="num">–</b><span>speed</span></div>
+    <div><b id="o-tod" class="num">–</b><span>finish clock time</span></div>
+   </div>
+  </div>
+
+  <div class="card">
+   <h2>Pacing strategy</h2>
+   <div class="chips" id="strat-chips">
+    <button type="button" class="chip" data-strat="effort">Even effort</button>
+    <button type="button" class="chip" data-strat="flat">Even pace</button>
+    <button type="button" class="chip" data-strat="negative">Negative split</button>
+    <button type="button" class="chip" data-strat="quadsaver">Quad saver</button>
+    <button type="button" class="chip" data-strat="bank">Bank time downhill</button>
+   </div>
+   <p class="muted" id="strat-help" style="margin:10px 0 0"></p>
+   <label class="label" for="mass">Your weight <span id="mass-v" class="num"></span></label>
+   <input type="range" id="mass" min="40" max="120" step="1">
+   <label class="label" for="cad">Your normal cadence <span id="cad-v" class="num"></span></label>
+   <input type="range" id="cad" min="150" max="200" step="1">
+   <label class="label" for="bus">Runner or pace bus name (for sharing)</label>
+   <input type="text" id="bus" maxlength="40" placeholder="e.g. Sub-55 bus">
+  </div>
+
+  <div class="card">
+   <h2>Take it with you</h2>
+   <div class="row">
+    <button type="button" class="btn wa" id="b-share">Share to WhatsApp</button>
+    <button type="button" class="btn ye" id="b-band">Wrist band</button>
+    <button type="button" class="btn" id="b-copy">Copy plan</button>
+    <button type="button" class="btn" id="b-link">Copy link</button>
+   </div>
+  </div>
+ </section>
+
+ <!-- COURSE -->
+ <section class="panel" id="p-course" aria-label="Course">
+  <div class="card">
+   <div class="kpis">
+    <div class="kpi"><b id="k-elev" class="num">–</b><span id="k-net">climb / drop</span></div>
+    <div class="kpi"><b id="k-gap" class="num">–</b><span>flat-road equivalent pace</span></div>
+    <div class="kpi"><b id="k-quad" class="num">–</b><span id="k-quad2">quad load</span></div>
+    <div class="kpi"><b id="k-cal" class="num">–</b><span>energy</span></div>
+    <div class="kpi hl"><b id="k-heat" class="num">–</b><span id="k-heat2">race-morning weather</span></div>
+   </div>
+   <div class="chart-head">
+    <h2 style="margin:0">Course profile</h2>
+    <div class="row">
+     <div class="seg sm" role="group" aria-label="Chart mode">
+      <button type="button" id="m-inspect" aria-pressed="true">Inspect</button>
+      <button type="button" id="m-sculpt" aria-pressed="false">Reshape</button>
+     </div>
+     <button type="button" class="btn sm" id="b-ghost">Ghost pacer</button>
+     <button type="button" class="btn sm" id="b-reset">Reset</button>
+    </div>
+   </div>
+   <div class="chart" id="chart"><canvas id="cv" role="img" aria-label="Course elevation profile coloured by gradient"></canvas></div>
+   <div class="legend"><span><i style="background:#0B9488"></i>downhill</span><span><i style="background:#0F2236"></i>flat</span><span><i style="background:#FF5C8A"></i>uphill</span><span><i style="background:#FFD23F;border:1px solid #0F2236"></i>you are here</span></div>
+   <label class="label" for="scrub">Move along the course</label>
+   <input type="range" id="scrub" min="0" max="219" value="0">
+   <div class="tele">
+    <div><b id="t-km" class="num">–</b><span>where</span></div>
+    <div><b id="t-grade" class="num">–</b><span>gradient</span></div>
+    <div><b id="t-pace" class="num">–</b><span>planned pace</span></div>
+    <div><b id="t-bio" class="num">–</b><span>cadence · stride</span></div>
+    <div><b id="t-wx" class="num">–</b><span>weather then</span></div>
+   </div>
+   <div class="banner" id="banner"></div>
+  </div>
+
+  <div class="card" id="req-card">
+   <h2>Request a race route</h2>
+   <p class="muted" style="margin-top:0">Want your race on The Runners Playground, or know the real route for one listed here? Tell us and we'll build its pacer.</p>
+   <form id="req-form">
+    <label class="label" for="q-race">Race name</label>
+    <input type="text" id="q-race" maxlength="80" required>
+    <div class="hms" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+     <div><label class="label" for="q-date">Race date</label><input type="date" id="q-date" class="plain" required style="width:100%;min-height:44px;padding:8px 12px;border:3px solid #0F2236;border-radius:14px;font-weight:700"></div>
+     <div><label class="label" for="q-dist">Distance(s)</label><input type="text" id="q-dist" maxlength="40" placeholder="e.g. 21.1 / 10 / 5 km"></div>
+    </div>
+    <label class="label" for="q-place">Place (town and start venue)</label>
+    <input type="text" id="q-place" maxlength="120" required placeholder="e.g. Hazyview, Perry's Bridge">
+    <label class="label" for="q-gpx">Route file (GPX), if you have one</label>
+    <input type="file" id="q-gpx" accept=".gpx,application/gpx+xml,application/xml,text/xml">
+    <div class="hms" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+     <div><label class="label" for="q-name">Your name</label><input type="text" id="q-name" maxlength="40" autocomplete="name"></div>
+     <div><label class="label" for="q-mail">Email (optional)</label><input type="text" id="q-mail" maxlength="80" inputmode="email" autocomplete="email"></div>
+    </div>
+    <label class="label" for="q-note">Anything else? (optional)</label>
+    <input type="text" id="q-note" maxlength="300" placeholder="e.g. start time, link to the race page">
+    <div class="row" style="margin-top:14px"><button type="submit" class="btn dark" id="q-go">Send request</button></div>
+    <p class="muted" id="q-msg" aria-live="polite" style="font-weight:800"></p>
+   </form>
+  </div>
+ </section>
+
+ <!-- SPLITS -->
+ <section class="panel" id="p-splits" aria-label="Splits">
+  <div class="card">
+   <div class="chart-head"><h2 style="margin:0">Km splits</h2><span class="pill ink" id="sp-chip">–</span></div>
+   <div class="scroll">
+    <table>
+     <thead><tr><th>Km</th><th>Section</th><th>Grade</th><th>Pace</th><th class="hide-sm">vs avg</th><th>Clock</th><th class="hide-sm">Time of day</th><th class="hide-sm">Effort</th><th class="hide-sm">Cadence</th><th class="hide-sm">Quads</th></tr></thead>
+     <tbody id="sp-body"></tbody>
+    </table>
+   </div>
+   <p class="muted">Tap a km to see it on the course.</p>
+  </div>
+ </section>
+
+ <!-- LEADERBOARD -->
+ <section class="panel" id="p-board" aria-label="Leaderboard">
+  <div class="card">
+   <h2>Lock in your goal &amp; join the leaderboard</h2>
+   <div id="lb-off" hidden><p style="margin:0" id="lb-off-msg"></p></div>
+   <div class="lb-grid" id="lb-on">
+    <form id="goal-form">
+     <label class="label" for="f-name">Your name</label>
+     <input type="text" id="f-name" maxlength="40" required autocomplete="name">
+     <label class="label" for="f-club">Club or group (optional)</label>
+     <input type="text" id="f-club" maxlength="40" list="club-list" placeholder="e.g. your club, team or work group">
+     <datalist id="club-list"></datalist>
+     <span class="label">Distance and goal</span>
+     <p style="margin:0;font-weight:800" id="f-summary">–</p>
+     <p class="muted" style="margin:4px 0 12px">Comes from your plan above. Change it there.</p>
+     <button type="submit" class="btn dark" id="f-go">Add my goal</button>
+     <div id="f-done" hidden style="margin-top:14px" class="banner">
+      <b id="f-done-msg"></b>
+      <div class="row" style="margin-top:10px"><a class="btn sm tq" id="f-gcal" target="_blank" rel="noopener" href="#">Google Calendar reminder</a><button type="button" class="btn sm" id="f-ics">Phone calendar (.ics)</button></div>
+     </div>
+    </form>
+    <div>
+     <div class="chart-head"><h3 style="font-size:22px">Live leaderboard</h3><button type="button" class="btn sm" id="lb-refresh">Refresh</button></div>
+     <span class="label">Distance</span>
+     <div class="chips" id="lb-dist"></div>
+     <span class="label">Clubs and groups <span class="muted">(pick one or more)</span></span>
+     <div class="chips" id="lb-clubs"></div>
+     <span class="label">Rank by</span>
+     <div class="seg sm" role="group" aria-label="Ranking">
+      <button type="button" id="r-fast" aria-pressed="true">Fastest</button>
+      <button type="button" id="r-pace" aria-pressed="false">Pacing champion</button>
+     </div>
+     <p class="muted" id="lb-note"></p>
+    </div>
+   </div>
+   <div class="scroll lb" style="margin-top:14px">
+    <table><thead><tr><th>#</th><th>Runner</th><th>Distance</th><th>Goal</th><th>Actual</th><th>vs goal</th></tr></thead><tbody id="lb-body"></tbody></table>
+   </div>
+  </div>
+ </section>
+</main>
+<footer style="max-width:1240px;margin:0 auto;padding:0 16px 32px;font-size:14px;color:#3D4F63">© 2026 The Runners Playground. All rights reserved.</footer>
+
+<!-- share modal -->
+<div class="modal" id="mo-share" role="dialog" aria-modal="true" aria-labelledby="mo-share-h"><div class="box">
+ <h2 id="mo-share-h" style="margin-bottom:10px">Share your plan</h2>
+ <div class="seg sm" role="group" aria-label="Message length" style="margin-bottom:10px"><button type="button" id="sh-key" aria-pressed="true">Key splits</button><button type="button" id="sh-all" aria-pressed="false">Every km</button></div>
+ <textarea id="sh-text" aria-label="Message"></textarea>
+ <div class="row" style="margin-top:12px"><a class="btn wa" id="sh-wa" target="_blank" rel="noopener" href="#">Open WhatsApp</a><button type="button" class="btn" id="sh-copy">Copy text</button><button type="button" class="btn" data-close>Close</button></div>
+</div></div>
+
+<!-- wrist band modal -->
+<div class="modal" id="mo-band" role="dialog" aria-modal="true" aria-labelledby="mo-band-h"><div class="box">
+ <h2 id="mo-band-h" style="margin-bottom:10px">Wrist band</h2>
+ <div class="band" id="band-print"><b id="band-head"></b><div class="muted" id="band-sub"></div><table><tbody id="band-body"></tbody></table></div>
+ <div class="row" style="margin-top:12px"><button type="button" class="btn ye" id="band-print-btn">Print</button><button type="button" class="btn" data-close>Close</button></div>
+</div></div>
+
+<!-- actual time modal -->
+<div class="modal" id="mo-actual" role="dialog" aria-modal="true" aria-labelledby="mo-actual-h"><div class="box">
+ <h2 id="mo-actual-h">Log your actual time</h2>
+ <p id="a-who" style="font-weight:800"></p>
+ <div class="hms">
+  <div><input class="plain" type="number" id="a-h" min="0" aria-label="Hours" style="text-align:center"><span>hours</span></div>
+  <div><input class="plain" type="number" id="a-m" min="0" max="59" aria-label="Minutes" style="text-align:center"><span>min</span></div>
+  <div><input class="plain" type="number" id="a-s" min="0" max="59" aria-label="Seconds" style="text-align:center"><span>sec</span></div>
+ </div>
+ <div class="row" style="margin-top:14px"><button type="button" class="btn dark" id="a-save">Save my time</button><button type="button" class="btn" data-close>Cancel</button></div>
+</div></div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="races.js"></script>
+<script src="pacer.js"></script>
+</body>
+</html>

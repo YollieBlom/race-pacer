@@ -1,0 +1,94 @@
+THE RUNNERS PLAYGROUND — RACE PACER SETUP
+==========================================
+
+WHAT'S IN THIS FOLDER
+  index.html  the dashboard page (don't need to edit)
+  pacer.js    the engine (don't need to edit)
+  races.js    YOUR RACE LIST: the only file you edit to add races
+  Code.gs     the Google Sheet leaderboard script
+  SETUP.txt   this file
+
+
+1. PUT IT ONLINE (GitHub Pages, free)
+  a. On GitHub, create a new public repository called:  race-pacer
+  b. Add file > Upload files > drag in index.html, pacer.js, races.js
+     (Code.gs and SETUP.txt can go in too, they do no harm) > Commit changes
+  c. Settings > Pages > Branch: main > Save
+  d. After a minute or two it's live at:
+        https://yollieblom.github.io/race-pacer/
+     Open a specific race with  ?race=westvaal  on the end.
+
+
+2. CONNECT THE LEADERBOARD (one time, about 10 minutes)
+  a. Go to sheets.google.com and make a new blank sheet.
+     Call it "Runners Playground Leaderboard".
+  b. In the sheet: Extensions > Apps Script.
+  c. Delete everything in Code.gs there, paste in ALL of Code.gs from
+     this folder, and click Save.
+  d. Click Deploy > New deployment > the gear icon > Web app.
+       Execute as:      Me
+       Who has access:  Anyone
+     Click Deploy, allow the permissions it asks for.
+  e. Copy the Web app URL (it ends in /exec).
+  f. Open races.js and paste it between the quotes on this line:
+        window.LEADERBOARD_URL = "";
+  g. Upload races.js to GitHub again.
+  The sheet makes its own "Entries" tab with a column for the race
+  and the club, so every race and club shares one sheet.
+  It also makes a "Route requests" tab. When someone sends a route
+  request with a GPX file, the file is saved in your Google Drive in a
+  folder called "Runners Playground route requests", with a link in
+  the sheet. (Google asks for Drive permission the first time.)
+
+  Your old Mataffin leaderboard still uses its own sheet and keeps
+  working as it was.
+
+
+3. THE BLOG (articles on the main website)
+  a. After step 2, open the main website file (index.html of
+     runners-playground) on your computer in Notepad. Near the bottom
+     find  const LINKS = {  and paste the SAME web app URL between the
+     quotes on the  sheet:  line. Save and upload it to GitHub.
+  b. Open the web app URL once in your browser with  ?action=posts  on
+     the end. This creates a "Blog" tab in your Google Sheet with the
+     three starter articles.
+  c. To ADD an article: type a new row in the Blog tab.
+       publish   yes  (or no to keep it as a draft)
+       date      e.g. 2026-12-01 (newest shows first)
+       category  e.g. Race day, Hills, Nutrition
+       title     the headline
+       summary   one short line shown on the card
+       body      the article. Leave an empty line between paragraphs
+                 (Ctrl+Enter / Alt+Enter makes a new line in a cell).
+                 Start lines with "- " for a bullet list.
+       image     optional photo: upload it to Google Drive, set sharing
+                 to "Anyone with the link", and paste the share link.
+       color     optional: turquoise, yellow or pink
+  d. To EDIT: change the cell. To HIDE: change publish to no.
+     Changes show on the website within about a minute.
+  If the sheet can't be reached, the website shows the three starter
+  articles instead, so the blog is never empty.
+
+
+4. ADD A NEW RACE
+  a. Open races.js, copy a whole race block (from { to },) and paste
+     it at the top of the list.
+  b. Change id, name, date, venue, coords, distances, start times
+     and goal times.
+  c. For the course: you need a GPX file that was RECORDED on the
+     route (a Strava or watch activity from someone who ran it), so it
+     has hundreds of points and heights. Route requests with GPX files
+     land in your Drive. Send the file to Claude and ask for the
+     races.js profile line. Then remove  estimated: true.
+  d. Upload races.js to GitHub. Done: the race has the full dashboard
+     and its own leaderboard.
+
+
+WESTVAAL NOTES
+  - 10 km starts 06:30, 4.9 km starts 06:45.
+  - The landmarks come from the waypoint files you supplied. Their km
+    positions are approximate, and those files have no heights, so the
+    course is still drawn flat until a recorded GPX of the route
+    turns up.
+  - The race-morning weather forecast appears automatically from about
+    two weeks before the race.
