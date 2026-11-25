@@ -28,6 +28,8 @@
      landmarks  [{ km: 5, label: "Turnaround" }]
      turnaround km of an out-and-back turn (optional)
      segments   (optional) one entry per km: title, surface, cue, rpe
+   examples    (optional) example leaderboard rows, shown only until real
+               results exist, always marked "Example"
    ===================================================================== */
 
 window.LEADERBOARD_URL = "https://script.google.com/macros/s/AKfycbwigsHxdzNvrx1_YdehnBkAiUMumAELNk_nWtRYYV42exLESbKCPsqdnN6p1ctjxSd7/exec"; // paste your new Google Apps Script web app URL here (see SETUP.txt)
@@ -78,6 +80,17 @@ window.RACES = [
     venue: "Mbombela Stadium ↔ Halls Farm ↔ Crocodile River",
     coords: [-25.4614, 30.9293],
     leaderboard: { url: "https://script.google.com/macros/s/AKfycbyUzAtTiV3K5sPWOvgjpf-YuaqE90vTsRnl5o3fhApz1pnheQvKkvDULyZfOXwzvEul/exec", legacy: true },
+    examples: [
+      { name: "Thandi M.", club: "Riverside Joggers", distance: "10 km", goalTime: "00:52:00", actualTime: "00:51:24" },
+      { name: "Pieter V.", club: "Hill Hustlers", distance: "10 km", goalTime: "00:48:00", actualTime: "00:48:37" },
+      { name: "Lerato K.", club: "Riverside Joggers", distance: "10 km", goalTime: "01:00:00", actualTime: "00:59:52" },
+      { name: "Johan B.", club: "Sunrise Striders", distance: "10 km", goalTime: "00:45:00", actualTime: "00:46:10" },
+      { name: "Anika S.", club: "Hill Hustlers", distance: "10 km", goalTime: "01:05:00", actualTime: "01:02:45" },
+      { name: "Sipho N.", club: "Sunrise Striders", distance: "10 km", goalTime: "00:55:00", actualTime: "" },
+      { name: "Marike D.", club: "Riverside Joggers", distance: "4.9 km", goalTime: "00:28:00", actualTime: "00:27:41" },
+      { name: "Kabelo T.", club: "", distance: "4.9 km", goalTime: "00:25:00", actualTime: "00:25:58" },
+      { name: "Elsa R.", club: "Sunrise Striders", distance: "4.9 km", goalTime: "00:35:00", actualTime: "00:33:20" }
+    ],
     logReminder: "13:00",
     distances: [
       {
@@ -122,7 +135,20 @@ window.RACES = [
     date: "2026-11-07",
     venue: "Kaapsehoop escarpment → Mbombela Stadium",
     coords: [-25.5880, 30.7670],
-    leaderboard: { url: "" },
+    leaderboard: { url: "USE_DEFAULT" },
+    examples: [
+      { name: "Nomsa D.", club: "Hill Hustlers", distance: "21.1 km", goalTime: "01:59:59", actualTime: "01:57:12" },
+      { name: "Riaan P.", club: "Riverside Joggers", distance: "21.1 km", goalTime: "01:44:59", actualTime: "01:46:30" },
+      { name: "Zanele M.", club: "Sunrise Striders", distance: "21.1 km", goalTime: "02:14:59", actualTime: "02:12:05" },
+      { name: "Werner H.", club: "Hill Hustlers", distance: "21.1 km", goalTime: "01:29:59", actualTime: "01:31:48" },
+      { name: "Busi L.", club: "", distance: "21.1 km", goalTime: "02:00:00", actualTime: "" },
+      { name: "Gert J.", club: "Riverside Joggers", distance: "42.2 km", goalTime: "03:59:59", actualTime: "04:05:21" },
+      { name: "Mpho S.", club: "Sunrise Striders", distance: "42.2 km", goalTime: "03:29:59", actualTime: "03:28:40" },
+      { name: "Liezl V.", club: "Hill Hustlers", distance: "42.2 km", goalTime: "04:29:59", actualTime: "04:24:02" },
+      { name: "Tumi R.", club: "Sunrise Striders", distance: "10 km", goalTime: "00:49:59", actualTime: "00:48:33" },
+      { name: "Chris N.", club: "Riverside Joggers", distance: "10 km", goalTime: "00:44:59", actualTime: "00:45:20" },
+      { name: "Palesa G.", club: "", distance: "10 km", goalTime: "00:54:59", actualTime: "00:53:58" }
+    ],
     logReminder: "13:00",
     distances: [
       {

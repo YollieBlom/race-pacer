@@ -324,7 +324,7 @@ textarea{width:100%;min-height:220px;border:2px solid var(--ink);border-radius:1
  <!-- LEADERBOARD -->
  <section class="panel" id="p-board" aria-label="Leaderboard">
   <div class="card">
-   <h2>Lock in your goal &amp; join the leaderboard</h2>
+   <h2 id="lb-title">Lock in your goal &amp; join the leaderboard</h2>
    <div id="lb-off" hidden><p style="margin:0" id="lb-off-msg"></p></div>
    <div class="lb-grid" id="lb-on">
     <form id="goal-form">
@@ -336,10 +336,18 @@ textarea{width:100%;min-height:220px;border:2px solid var(--ink);border-radius:1
      <span class="label">Distance and goal</span>
      <p style="margin:0;font-weight:800" id="f-summary">–</p>
      <p class="muted" style="margin:4px 0 12px">Comes from your plan above. Change it there.</p>
+     <div id="f-actual" hidden>
+      <span class="label">Your actual finish time</span>
+      <div class="hms" style="margin-bottom:12px">
+       <div><input class="plain" type="number" id="fa-h" min="0" aria-label="Hours" style="text-align:center"><span>hours</span></div>
+       <div><input class="plain" type="number" id="fa-m" min="0" max="59" aria-label="Minutes" style="text-align:center"><span>min</span></div>
+       <div><input class="plain" type="number" id="fa-s" min="0" max="59" aria-label="Seconds" style="text-align:center"><span>sec</span></div>
+      </div>
+     </div>
      <button type="submit" class="btn dark" id="f-go">Add my goal</button>
      <div id="f-done" hidden style="margin-top:14px" class="banner">
       <b id="f-done-msg"></b>
-      <div class="row" style="margin-top:10px"><a class="btn sm tq" id="f-gcal" target="_blank" rel="noopener" href="#">Google Calendar reminder</a><button type="button" class="btn sm" id="f-ics">Phone calendar (.ics)</button></div>
+      <div class="row" id="f-cal" style="margin-top:10px"><a class="btn sm tq" id="f-gcal" target="_blank" rel="noopener" href="#">Google Calendar reminder</a><button type="button" class="btn sm" id="f-ics">Phone calendar (.ics)</button></div>
      </div>
     </form>
     <div>
@@ -354,6 +362,7 @@ textarea{width:100%;min-height:220px;border:2px solid var(--ink);border-radius:1
       <button type="button" id="r-pace" aria-pressed="false">Pacing champion</button>
      </div>
      <p class="muted" id="lb-note"></p>
+     <p id="lb-example" class="banner" style="font-weight:700;font-size:14px" hidden>These are example results to show how the leaderboard works. They disappear as soon as real runners add their results.</p>
     </div>
    </div>
    <div class="scroll lb" style="margin-top:14px">

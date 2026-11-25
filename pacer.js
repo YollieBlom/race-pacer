@@ -53,6 +53,7 @@ const S = { race: null, dist: null, watch: false, goal: 3300, strat: 'effort', m
 const km = () => S.watch && S.dist.watchKm ? S.dist.watchKm : S.dist.km;
 const raceDate = () => S.race.date ? new Date(S.race.date + 'T00:00:00') : null;
 const startSec = () => { const t = S.dist.start; if (!t) return null; const [h, m] = t.split(':').map(Number); return h * 3600 + m * 60; };
+const isDone = r => { if (r.finished) return true; if (!r.date) return false; const t = new Date(); t.setHours(0, 0, 0, 0); return new Date(r.date + 'T00:00:00') < t; };
 const lbUrl = r => { const u = (r.leaderboard || {}).url; return u === 'USE_DEFAULT' ? (window.LEADERBOARD_URL || '') : (u || ''); };
 
 /* ---------- course ---------- */
@@ -275,8 +276,8 @@ const setupRace = (id, distKey) => {
   $('r-name').textContent = S.race.name;
   const d = raceDate(), today = new Date(); today.setHours(0, 0, 0, 0);
   const days = d ? Math.round((d - today) / 864e5) : null;
-  const done = S.race.finished || (days != null && days < 0);
-  $('r-status').textContent = done ? 'Race finished · still works as a pacer' : days === 0 ? 'Race day! Good luck' : days != null ? days + (days === 1 ? ' day to go' : ' days to go') : 'Race pacer';
+  const done = isDone(S.race);
+  $('r-status').textContent = done ? 'Past race · see the results' : days === 0 ? 'Race day! Good luck' : days != null ? days + (days === 1 ? ' day to go' : ' days to go') : 'Race pacer';
   $('r-status').className = 'pill ' + (done ? 'pk' : 'ye');
   $('r-meta').innerHTML = [d ? esc(fmtDate(d)) : '', esc(S.race.venue || ''), S.race.entryUrl ? `<a href="${esc(S.race.entryUrl)}" target="_blank" rel="noopener">Race entries</a>` : '']
     .filter(Boolean).map(x => `<span class="pill">${x}</span>`).join('');
@@ -370,9 +371,15 @@ const setupBoard = () => {
   if (!url) { $('lb-off-msg').textContent = S.race.leaderboard && S.race.leaderboard.url === 'USE_DEFAULT' ? 'The leaderboard for this race opens as soon as your Google Sheet is connected (see SETUP.txt). Your plan above already works.' : 'There is no leaderboard for this race.'; return; }
   setupBoardForm();
   $('lb-dist').innerHTML = [['all', 'All']].concat(S.race.distances.map(d => [d.key, d.label])).map(([k, l]) => `<button type="button" class="chip" data-ld="${esc(k)}" aria-pressed="${S.lb.dist === k}">${esc(l)}</button>`).join('');
-  S.lb.entries = []; renderBoard(); loadBoard();
+  S.lb.entries = []; S.lb.loaded = false; renderBoard(); loadBoard();
 };
-const setupBoardForm = () => { $('f-done').hidden = true; const c = store.get('myclub'); if (c && !$('f-club').value) $('f-club').value = c; };
+const setupBoardForm = () => {
+  $('f-done').hidden = true; const c = store.get('myclub'); if (c && !$('f-club').value) $('f-club').value = c;
+  const done = isDone(S.race);
+  $('lb-title').textContent = done ? 'Ran this race? Add your result' : 'Lock in your goal & join the leaderboard';
+  $('f-actual').hidden = !done; $('f-cal').hidden = done;
+  $('f-go').textContent = done ? 'Add my result' : 'Add my goal';
+};
 const loadBoard = async () => {
   const url = lbUrl(S.race); if (!url) return;
   $('lb-refresh').textContent = 'Loading…';
@@ -382,19 +389,22 @@ const loadBoard = async () => {
     const data = await res.json();
     let list = Array.isArray(data) ? data : (data.entries || []);
     if (!legacy) list = list.filter(e => !e.race || e.race === S.race.id);
-    S.lb.entries = list; renderBoard();
+    S.lb.entries = list; S.lb.loaded = true; renderBoard();
   } catch (e) { $('lb-body').innerHTML = '<tr><td colspan="6">Could not load the leaderboard. Check your connection and tap Refresh.</td></tr>'; }
   finally { $('lb-refresh').textContent = 'Refresh'; }
 };
+const boardEntries = () => S.lb.entries.length ? S.lb.entries : (S.lb.loaded && isDone(S.race) ? (S.race.examples || []).map((e, i) => ({ ...e, id: 'ex' + i, example: true })) : []);
 const renderBoard = () => {
-  const clubs = [...new Set(S.lb.entries.map(e => String(e.club || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const all = boardEntries();
+  $('lb-example').hidden = !all.some(e => e.example);
+  const clubs = [...new Set(all.map(e => String(e.club || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   $('club-list').innerHTML = clubs.map(c => `<option value="${esc(c)}">`).join('');
-  [...S.lb.clubs].forEach(c => { if (!clubs.includes(c) && S.lb.entries.length) S.lb.clubs.delete(c); });
+  [...S.lb.clubs].forEach(c => { if (!clubs.includes(c) && all.length) S.lb.clubs.delete(c); });
   $('lb-clubs').innerHTML = `<button type="button" class="chip tq" data-lc="" aria-pressed="${S.lb.clubs.size === 0}">All runners</button>` + clubs.map(c => `<button type="button" class="chip tq" data-lc="${esc(c)}" aria-pressed="${S.lb.clubs.has(c)}">${esc(c)}</button>`).join('') + (clubs.length ? '' : '<span class="muted">Clubs appear here once runners add them.</span>');
   document.querySelectorAll('#lb-dist .chip').forEach(c => c.setAttribute('aria-pressed', c.dataset.ld === S.lb.dist));
   $('r-fast').setAttribute('aria-pressed', S.lb.rank === 'fastest'); $('r-pace').setAttribute('aria-pressed', S.lb.rank === 'pacing');
   $('lb-note').textContent = S.lb.rank === 'pacing' ? 'Pacing champion: closest to their own goal wins. Beating your goal wins a tie.' : S.lb.dist === 'all' ? 'Fastest: ranked by average pace, so different distances compare fairly.' : 'Fastest: ranked by finish time.';
-  const rows = S.lb.entries.map(e => {
+  const rows = all.map(e => {
     const d = distOfEntry(e), dk = d ? d.km : parseFloat(e.distance) || null;
     const g = parseT(e.goalTime), a = parseT(e.actualTime);
     return { e, d, dk, g, a, ap: a && dk ? a / dk : null, gp: g && dk ? g / dk : null, diff: a && g ? a - g : null, club: String(e.club || '').trim() };
@@ -402,15 +412,15 @@ const renderBoard = () => {
   const fin = rows.filter(r => r.a), pend = rows.filter(r => !r.a);
   if (S.lb.rank === 'fastest') fin.sort((x, y) => S.lb.dist === 'all' ? x.ap - y.ap : x.a - y.a);
   else fin.sort((x, y) => (Math.abs(x.diff ?? 1e9) - Math.abs(y.diff ?? 1e9)) || ((x.diff ?? 1e9) - (y.diff ?? 1e9)));
-  if (!rows.length) { $('lb-body').innerHTML = `<tr><td colspan="6">${S.lb.entries.length ? 'Nobody matches these filters yet.' : 'No goals yet. Be the first to lock yours in!'}</td></tr>`; return; }
-  const who = r => `<b>${esc(r.e.name || 'Runner')}</b>${r.club ? `<br><span class="club">${esc(r.club)}</span>` : ''}`;
+  if (!rows.length) { $('lb-body').innerHTML = `<tr><td colspan="6">${all.length ? 'Nobody matches these filters yet.' : isDone(S.race) ? 'No results yet. Ran it? Add yours!' : 'No goals yet. Be the first to lock yours in!'}</td></tr>`; return; }
+  const who = r => `<b>${esc(r.e.name || 'Runner')}</b>${r.e.example ? ' <span class="badge slow">Example</span>' : ''}${r.club ? `<br><span class="club">${esc(r.club)}</span>` : ''}`;
   const medal = i => i < 3 ? `<span class="medal" style="background:${['#FFD23F', '#E4EEF6', '#FFC2D4'][i]}">${i + 1}</span>` : '#' + (i + 1);
   let html = fin.map((r, i) => {
     const vs = r.diff == null ? '–' : `<span class="badge ${r.diff <= 0 ? 'good' : 'slow'}">${r.diff <= 0 ? '−' : '+'}${fmtDur(Math.abs(r.diff))}</span>`;
     return `<tr><td>${medal(i)}</td><td>${who(r)}</td><td>${esc(r.d ? r.d.label : r.e.distance)}</td><td>${r.g ? fmtDur(r.g) : '–'}<br><span class="muted">${r.gp ? fmtPace(r.gp) + '/km' : ''}</span></td><td><b>${fmtDur(r.a)}</b><br><span class="muted">${r.ap ? fmtPace(r.ap) + '/km' : ''}</span></td><td>${vs}</td></tr>`;
   }).join('');
   if (fin.length && pend.length) html += `<tr><td colspan="6" class="muted" style="text-align:left;font-weight:900">Still to log their time (${pend.length})</td></tr>`;
-  html += pend.map(r => `<tr><td>–</td><td>${who(r)}</td><td>${esc(r.d ? r.d.label : r.e.distance)}</td><td>${r.g ? fmtDur(r.g) : '–'}<br><span class="muted">${r.gp ? fmtPace(r.gp) + '/km' : ''}</span></td><td><button type="button" class="btn sm pk" data-log="${esc(r.e.id)}">Log time</button></td><td class="muted">pending</td></tr>`).join('');
+  html += pend.map(r => `<tr><td>–</td><td>${who(r)}</td><td>${esc(r.d ? r.d.label : r.e.distance)}</td><td>${r.g ? fmtDur(r.g) : '–'}<br><span class="muted">${r.gp ? fmtPace(r.gp) + '/km' : ''}</span></td><td>${r.e.example ? '–' : `<button type="button" class="btn sm pk" data-log="${esc(r.e.id)}">Log time</button>`}</td><td class="muted">pending</td></tr>`).join('');
   $('lb-body').innerHTML = html;
 };
 $('lb-dist').addEventListener('click', e => { const c = e.target.closest('[data-ld]'); if (c) { S.lb.dist = c.dataset.ld; renderBoard(); } });
@@ -427,15 +437,20 @@ $('goal-form').addEventListener('submit', async e => {
   e.preventDefault();
   const name = $('f-name').value.trim(), club = $('f-club').value.trim();
   if (!name) { toast('Please add your name.'); return; }
+  const done = isDone(S.race);
+  const actual = (+$('fa-h').value || 0) * 3600 + (+$('fa-m').value || 0) * 60 + (+$('fa-s').value || 0);
+  if (done && actual <= 0) { toast('Please add your actual finish time.'); return; }
   $('f-go').disabled = true; $('f-go').textContent = 'Saving…';
   try {
-    await post({ action: 'add_goal', race: S.race.id, id: String(Date.now()), name, club, distance: S.dist.label, goalTime: fmtHMS(S.goal) });
+    const id = String(Date.now());
+    await post({ action: 'add_goal', race: S.race.id, id, name, club, distance: S.dist.label, goalTime: fmtHMS(S.goal) });
+    if (done) await post({ action: 'log_actual', race: S.race.id, id, actualTime: fmtHMS(actual) });
     if (club) store.set('myclub', club);
-    $('f-done-msg').textContent = `${name} is locked in for ${S.dist.label} at ${fmtDur(S.goal)}! Set a reminder to log your real time after the race.`;
+    $('f-done-msg').textContent = done ? `${name}'s result is on the leaderboard: ${fmtDur(actual)} for ${S.dist.label} (goal ${fmtDur(S.goal)}). Well run!` : `${name} is locked in for ${S.dist.label} at ${fmtDur(S.goal)}! Set a reminder to log your real time after the race.`;
     $('f-gcal').href = gcalUrl(); $('f-done').hidden = false; $('f-name').value = '';
     toast('Goal added to the leaderboard!'); await loadBoard();
   } catch (err) { toast('Could not save. Check your connection and try again.'); }
-  finally { $('f-go').disabled = false; $('f-go').textContent = 'Add my goal'; }
+  finally { $('f-go').disabled = false; $('f-go').textContent = isDone(S.race) ? 'Add my result' : 'Add my goal'; }
 });
 const reminderUTC = () => { const [h, m] = (S.race.logReminder || '13:00').split(':').map(Number); const d = raceDate() || new Date(); return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), h - 2, m)); };
 const icsStamp = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -486,10 +501,13 @@ $('req-form').addEventListener('submit', async e => {
 const saveLocal = () => store.set('last', { race: S.race.id, d: S.dist.key, goal: Math.round(S.goal), strat: S.strat, kg: S.mass, cad: S.cad, bus: S.bus, w: S.watch });
 const boot = () => {
   if (!RACES.length) { $('r-name').textContent = 'No races yet: add one in races.js'; return; }
-  $('race-sel').innerHTML = RACES.map(r => `<option value="${esc(r.id)}">${esc(r.name)}${r.date ? ' · ' + esc(r.date) : ''}</option>`).join('');
+  const opt = r => `<option value="${esc(r.id)}">${esc(r.name)}${r.date ? ' · ' + esc(fmtDate(new Date(r.date + 'T00:00:00'))) : ''}</option>`;
+  const up = RACES.filter(r => !isDone(r)).sort((a, b) => String(a.date || '9').localeCompare(String(b.date || '9')));
+  const past = RACES.filter(isDone).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  $('race-sel').innerHTML = (up.length ? `<optgroup label="Upcoming races">${up.map(opt).join('')}</optgroup>` : '') + (past.length ? `<optgroup label="Past races">${past.map(opt).join('')}</optgroup>` : '');
   const q = new URLSearchParams(location.search), last = store.get('last') || {};
   const fromUrl = q.has('race');
-  const race = RACES.find(r => r.id === (q.get('race') || last.race)) || RACES[0];
+  const race = RACES.find(r => r.id === (q.get('race') || last.race)) || up[0] || RACES[0];
   const dist = race.distances.find(d => d.key === (fromUrl ? q.get('d') : last.race === race.id ? last.d : null)) || race.distances[0];
   const src = fromUrl ? { goal: parseT(q.get('t')), strat: q.get('s'), kg: +q.get('kg'), cad: +q.get('cad'), bus: q.get('bus'), w: q.get('w') === '1' } : (last.race === race.id ? last : {});
   S.goal = src.goal || parseT(dist.goal) || 3600;
