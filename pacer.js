@@ -283,10 +283,11 @@ const setupRace = (id, distKey) => {
     .filter(Boolean).map(x => `<span class="pill">${x}</span>`).join('');
   $('dist-seg').innerHTML = S.race.distances.map(x => `<button type="button" data-dist="${esc(x.key)}" aria-pressed="${x.key === S.dist.key}">${esc(x.label)}${x.start ? ' · ' + esc(x.start) : ''}</button>`).join('');
   setupDistance();
-  loadWeather(); setupBoard();
+  loadWeather(); setupBoard(); showPred();
 };
 const setupDistance = () => {
   if (!S.dist.watchKm) S.watch = false;
+  $('pr-race').textContent = (S.race.name || 'this race') + ' (' + S.dist.label + ')';
   $('watch-seg').hidden = !S.dist.watchKm;
   if (S.dist.watchKm) $('watch-seg').innerHTML = `<button type="button" data-w="0" aria-pressed="${!S.watch}">Official ${S.dist.km} km</button><button type="button" data-w="1" aria-pressed="${S.watch}">My watch says ${S.dist.watchKm.toFixed(1)} km</button>`;
   document.querySelectorAll('#dist-seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.dist === S.dist.key));
@@ -496,6 +497,74 @@ $('req-form').addEventListener('submit', async e => {
   } catch (err) { msg.textContent = (err.message && err.message.startsWith('That file') ? err.message : 'Could not send. Check your connection and try again.'); }
   finally { $('q-go').disabled = false; $('q-go').textContent = 'Send request'; }
 });
+
+
+/* ---------- personal race prediction ----------
+   Runner enters recent runs: distance, time, effort, optional climb.
+   1. Each run becomes a flat-road race effort (climb removed, easy runs scaled up to race effort).
+   2. Riegel's formula stretches it to this race's distance: T2 = T1 × (D2 / D1)^1.06
+   3. Runs are blended: races & hard runs and runs close to the race distance count most.
+   4. This course's hills (the pacer's own terrain model) and the race-morning heat forecast are added. */
+const EFFORT = { race: { f: 1, w: 4, name: 'Race / time trial' }, hard: { f: 0.975, w: 3, name: 'Hard' }, steady: { f: 0.93, w: 2, name: 'Steady' }, easy: { f: 0.87, w: 1, name: 'Easy' } };
+const P = { runs: store.get('runs') || [{}, {}, {}], on: false, res: null };
+const readTime = raw => { const v = String(raw || '').trim().replace(/[hms ]+/g, ':').replace(/:+$/, ''); if (/^\d+(\.\d+)?$/.test(v)) return +v * 60; return parseT(v); };
+function drawRuns() {
+  $('pr-runs').innerHTML = P.runs.map((r, i) => `<div class="pr-run" data-i="${i}">
+    <label>Distance (km)<input data-k="d" inputmode="decimal" placeholder="e.g. 8" value="${esc(r.d || '')}"></label>
+    <label>Time<input data-k="t" inputmode="numeric" placeholder="e.g. 46:30" value="${esc(r.t || '')}"></label>
+    <label>Effort<select data-k="e">${Object.keys(EFFORT).map(k => `<option value="${k}"${(r.e || 'steady') === k ? ' selected' : ''}>${EFFORT[k].name}</option>`).join('')}</select></label>
+    <label>Climb (m) · optional<input data-k="c" inputmode="numeric" placeholder="e.g. 80" value="${esc(r.c || '')}"></label>
+    ${P.runs.length > 1 ? `<button type="button" class="x" data-del="${i}" aria-label="Remove run ${i + 1}">×</button>` : ''}
+  </div>`).join('');
+  $('pr-add').hidden = P.runs.length >= 5;
+}
+$('pr-runs').addEventListener('input', e => { const box = e.target.closest('.pr-run'); if (!box) return; P.runs[+box.dataset.i][e.target.dataset.k] = e.target.value; store.set('runs', P.runs); });
+$('pr-runs').addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (!b) return; P.runs.splice(+b.dataset.del, 1); store.set('runs', P.runs); drawRuns(); });
+$('pr-add').addEventListener('click', () => { if (P.runs.length < 5) { P.runs.push({}); drawRuns(); $('pr-runs').lastElementChild.querySelector('input').focus(); } });
+function predictFlat() {
+  const D = S.dist.km, out = [];
+  P.runs.forEach(r => {
+    const d = parseFloat(String(r.d || '').replace(',', '.')), t = readTime(r.t), e = EFFORT[r.e || 'steady'];
+    if (!(d >= 0.8 && d <= 60) || !t) return;
+    const pace = t / d; if (pace < 150 || pace > 1080) return;          // between 2:30 and 18:00 per km
+    const climb = Math.max(0, Math.min(2000, parseFloat(r.c) || 0));
+    const flat = Math.max(t * 0.85, t - climb * 0.5);                   // about 50 s per 100 m of climbing
+    const pred = flat * e.f * Math.pow(D / d, 1.06);
+    out.push({ pred, w: e.w / (1 + Math.abs(Math.log(D / d))), hard: e.w >= 3 });
+  });
+  if (!out.length) return null;
+  const W = out.reduce((a, x) => a + x.w, 0), mu = out.reduce((a, x) => a + x.w * Math.log(x.pred), 0) / W;
+  const sd = Math.sqrt(out.reduce((a, x) => a + x.w * (Math.log(x.pred) - mu) ** 2, 0) / W);
+  const band = Math.min(0.1, Math.max(out.some(x => x.hard) ? 0.025 : 0.05, sd));
+  return { flat: Math.exp(mu), band, n: out.length };
+}
+function showPred() {
+  if (!P.on || !R) return;
+  const f = predictFlat(); if (!f) { $('pr-out').hidden = true; return; }
+  const k = R.gap > 0 ? R.target / (R.gap * km()) : 1;                  // this course vs a flat road
+  const course = f.flat * (S.watch && S.dist.watchKm ? S.dist.watchKm / S.dist.km : 1) * k;
+  let cost = null;
+  if (S.wx) { const st = startSec() || 6 * 3600, a = wxAt(st), b = wxAt(st + course); cost = (heatCost(a.t, a.rh) + heatCost(b.t, b.rh)) / 2; }
+  const fin = course * (1 + (cost || 0) / 100);
+  P.res = fin;
+  $('pr-lab').textContent = 'Your predicted ' + S.dist.label + ' time';
+  $('pr-final').textContent = fmtDur(fin);
+  $('pr-range').textContent = 'Likely between ' + fmtDur(fin * (1 - f.band)) + ' and ' + fmtDur(fin * (1 + f.band)) + ' · ' + fmtPace(fin / km()) + ' /km · from ' + f.n + (f.n === 1 ? ' run' : ' runs');
+  $('pr-flat').textContent = fmtDur(f.flat);
+  const dh = course - f.flat;
+  $('pr-hill').textContent = fmtDur(course);
+  $('pr-hill2').textContent = S.dist.estimated ? 'course hills not mapped yet' : 'with this course\'s hills (' + (dh >= 0 ? '+' : '−') + fmtDur(Math.abs(dh)) + ')';
+  $('pr-heat').textContent = cost == null ? '–' : fmtDur(fin);
+  $('pr-heat2').textContent = cost == null ? 'heat added when the forecast appears (about 2 weeks out)' : cost > 0 ? 'with race-morning heat (+' + cost.toFixed(1) + '%)' : 'race morning looks cool: no heat penalty';
+  $('pr-out').hidden = false;
+}
+$('pr-go').addEventListener('click', () => {
+  const f = predictFlat();
+  if (!f) { $('pr-err').textContent = 'Add at least one run with a distance and a time (like 8 km in 46:30).'; $('pr-out').hidden = true; return; }
+  $('pr-err').textContent = ''; P.on = true; showPred();
+});
+$('pr-use').addEventListener('click', () => { if (!P.res) return; setGoal(P.res); toast('Goal set to ' + fmtDur(P.res) + '. Your splits are ready!'); });
+drawRuns();
 
 /* ---------- remember + boot ---------- */
 const saveLocal = () => store.set('last', { race: S.race.id, d: S.dist.key, goal: Math.round(S.goal), strat: S.strat, kg: S.mass, cad: S.cad, bus: S.bus, w: S.watch });
