@@ -49,6 +49,12 @@ button,input,select{font:inherit;color:inherit}
 .seg.sm button{min-height:36px;padding:6px 12px;font-size:14px}
 select.race-sel{min-height:48px;padding:8px 14px;border:var(--line);border-radius:16px;background:#fff;font-weight:800;max-width:100%}
 .notice{max-width:1240px;margin:14px auto 0;padding:0 16px}
+.req-banner{max-width:1240px;margin:14px auto 0;padding:0 16px}
+.req-banner a{display:flex;align-items:center;gap:10px;background:#fff;border:2px solid var(--ink);border-radius:16px;padding:9px 14px;font-weight:700;font-size:15px;text-decoration:none;box-shadow:3px 3px 0 var(--pk)}
+.req-banner a b{text-decoration:underline;text-decoration-color:var(--pk);text-decoration-thickness:3px}
+.req-banner .arr{margin-left:auto;font-weight:900}
+#p-req{grid-column:1/-1}
+#req-card{scroll-margin-top:16px}
 .notice div{background:var(--ye-l);border:2px solid var(--ink);border-radius:16px;padding:10px 14px;font-weight:700;font-size:15px}
 /* tabs */
 .tabs{position:sticky;top:0;z-index:20;background:#F3FBFA;border-bottom:2px solid var(--mist);display:none}
@@ -196,6 +202,7 @@ textarea{width:100%;min-height:220px;border:2px solid var(--ink);border-radius:1
  </div>
 </header>
 <div class="notice" id="r-notice" hidden><div></div></div>
+<div class="req-banner"><a href="#req-card"><span aria-hidden="true">🗺️</span> <span>Don't see your race, or know its real route? <b>Request a race</b></span> <span aria-hidden="true" class="arr">→</span></a></div>
 
 
 
@@ -319,31 +326,6 @@ textarea{width:100%;min-height:220px;border:2px solid var(--ink);border-radius:1
    <div class="banner" id="banner"></div>
   </div>
 
-  <div class="card" id="req-card">
-   <h2>Request a race route</h2>
-   <p class="muted" style="margin-top:0">Want your race on The Runners Playground, or know the real route for one listed here? Tell us and we'll build its pacer.</p>
-   <form id="req-form">
-    <label class="label" for="q-race">Race name</label>
-    <input type="text" id="q-race" maxlength="80" required>
-    <div class="hms" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-     <div><label class="label" for="q-date">Race date</label><input type="date" id="q-date" class="plain" required style="width:100%;min-height:44px;padding:8px 12px;border:3px solid #0F2236;border-radius:14px;font-weight:700"></div>
-     <div><label class="label" for="q-dist">Distance(s)</label><input type="text" id="q-dist" maxlength="40" placeholder="e.g. 21.1 / 10 / 5 km"></div>
-    </div>
-    <label class="label" for="q-place">Place (town and start venue)</label>
-    <input type="text" id="q-place" maxlength="120" required placeholder="e.g. Hazyview, Perry's Bridge">
-    <label class="label" for="q-gpx">Route file (GPX), if you have one</label>
-    <input type="file" id="q-gpx" accept=".gpx,application/gpx+xml,application/xml,text/xml">
-    <div class="hms" style="grid-template-columns:repeat(2,minmax(0,1fr))">
-     <div><label class="label" for="q-name">Your name</label><input type="text" id="q-name" maxlength="40" autocomplete="name"></div>
-     <div><label class="label" for="q-mail">Email (optional)</label><input type="text" id="q-mail" maxlength="80" inputmode="email" autocomplete="email"></div>
-    </div>
-    <label class="label" for="q-note">Anything else? (optional)</label>
-    <input type="text" id="q-note" maxlength="300" placeholder="e.g. start time, link to the race page">
-    <div class="row" style="margin-top:14px"><button type="submit" class="btn dark" id="q-go">Send request</button></div>
-    <p class="muted" style="margin:8px 0 0">We only use your details to build the pacer and reply to you. <a href="https://runnersplayground.com/privacy.html">Privacy policy</a></p>
-    <p class="muted" id="q-msg" aria-live="polite" style="font-weight:800"></p>
-   </form>
-  </div>
  </section>
 
  <!-- SPLITS -->
@@ -408,6 +390,35 @@ textarea{width:100%;min-height:220px;border:2px solid var(--ink);border-radius:1
    <div class="scroll lb" style="margin-top:14px">
     <table><thead><tr><th>#</th><th>Runner</th><th>Distance</th><th>Goal</th><th>Actual</th><th>vs goal</th></tr></thead><tbody id="lb-body"></tbody></table>
    </div>
+  </div>
+ </section>
+
+ <!-- REQUEST A RACE (linked from the banner at the top) -->
+ <section class="panel" id="p-req" aria-label="Request a race">
+  <div class="card" id="req-card">
+   <h2>Request a race route</h2>
+   <p class="muted" style="margin-top:0">Want your race on The Runners Playground, or know the real route for one listed here? Tell us and we'll build its pacer.</p>
+   <form id="req-form">
+    <label class="label" for="q-race">Race name</label>
+    <input type="text" id="q-race" maxlength="80" required>
+    <div class="hms" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+     <div><label class="label" for="q-date">Race date</label><input type="date" id="q-date" class="plain" required style="width:100%;min-height:44px;padding:8px 12px;border:3px solid #0F2236;border-radius:14px;font-weight:700"></div>
+     <div><label class="label" for="q-dist">Distance(s)</label><input type="text" id="q-dist" maxlength="40" placeholder="e.g. 21.1 / 10 / 5 km"></div>
+    </div>
+    <label class="label" for="q-place">Place (town and start venue)</label>
+    <input type="text" id="q-place" maxlength="120" required placeholder="e.g. Hazyview, Perry's Bridge">
+    <label class="label" for="q-gpx">Route file (GPX), if you have one</label>
+    <input type="file" id="q-gpx" accept=".gpx,application/gpx+xml,application/xml,text/xml">
+    <div class="hms" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+     <div><label class="label" for="q-name">Your name</label><input type="text" id="q-name" maxlength="40" autocomplete="name"></div>
+     <div><label class="label" for="q-mail">Email (optional)</label><input type="text" id="q-mail" maxlength="80" inputmode="email" autocomplete="email"></div>
+    </div>
+    <label class="label" for="q-note">Anything else? (optional)</label>
+    <input type="text" id="q-note" maxlength="300" placeholder="e.g. start time, link to the race page">
+    <div class="row" style="margin-top:14px"><button type="submit" class="btn dark" id="q-go">Send request</button></div>
+    <p class="muted" style="margin:8px 0 0">We only use your details to build the pacer and reply to you. <a href="https://runnersplayground.com/privacy.html">Privacy policy</a></p>
+    <p class="muted" id="q-msg" aria-live="polite" style="font-weight:800"></p>
+   </form>
   </div>
  </section>
 </main>
