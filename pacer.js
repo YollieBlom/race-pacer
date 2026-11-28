@@ -322,14 +322,8 @@ const loadWeather = async () => {
 };
 
 /* ---------- tabs (phones) ---------- */
-const showTab = (id, scroll = true) => {
-  document.querySelectorAll('.tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === id));
-  document.querySelectorAll('.panel').forEach(p => p.dataset.hide = p.id !== id);
-  if (scroll) window.scrollTo({ top: document.querySelector('.tabs').offsetTop, behavior: 'smooth' });
-  if (id === 'p-course') requestAnimationFrame(draw);
-};
-document.querySelectorAll('.tabs [data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
-showTab('p-plan', false);
+/* phones show every section in one long page; this just scrolls to a section */
+const showTab = id => { const el = id === 'p-course' ? $('chart') : $(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); if (id === 'p-course') requestAnimationFrame(draw); };
 
 /* ---------- sharing ---------- */
 const shareUrl = () => { const u = new URL(location.href.split('?')[0]); const p = new URLSearchParams({ race: S.race.id, d: S.dist.key, t: fmtHMS(S.goal), s: S.strat, w: S.watch ? 1 : 0, kg: S.mass, cad: S.cad }); if (S.bus.trim()) p.set('bus', S.bus.trim()); return u + '?' + p; };
@@ -414,14 +408,14 @@ const renderBoard = () => {
   if (S.lb.rank === 'fastest') fin.sort((x, y) => S.lb.dist === 'all' ? x.ap - y.ap : x.a - y.a);
   else fin.sort((x, y) => (Math.abs(x.diff ?? 1e9) - Math.abs(y.diff ?? 1e9)) || ((x.diff ?? 1e9) - (y.diff ?? 1e9)));
   if (!rows.length) { $('lb-body').innerHTML = `<tr><td colspan="6">${all.length ? 'Nobody matches these filters yet.' : isDone(S.race) ? 'No results yet. Ran it? Add yours!' : 'No goals yet. Be the first to lock yours in!'}</td></tr>`; return; }
-  const who = r => `<b>${esc(r.e.name || 'Runner')}</b>${r.e.example ? ' <span class="badge slow">Example</span>' : ''}${r.club ? `<br><span class="club">${esc(r.club)}</span>` : ''}`;
+  const who = r => `<b>${esc(r.e.name || 'Runner')}</b>${r.e.example ? ' <span class="badge slow">Example</span>' : ''}${mineOf(r.e.id) ? ` <span class="badge good">you</span> <button type="button" class="edit-me" data-edit="${esc(r.e.id)}">Edit</button>` : ''}${r.club ? `<br><span class="club">${esc(r.club)}</span>` : ''}`;
   const medal = i => i < 3 ? `<span class="medal" style="background:${['#FFD23F', '#E4EEF6', '#FFC2D4'][i]}">${i + 1}</span>` : '#' + (i + 1);
   let html = fin.map((r, i) => {
     const vs = r.diff == null ? '–' : `<span class="badge ${r.diff <= 0 ? 'good' : 'slow'}">${r.diff <= 0 ? '−' : '+'}${fmtDur(Math.abs(r.diff))}</span>`;
     return `<tr><td>${medal(i)}</td><td>${who(r)}</td><td>${esc(r.d ? r.d.label : r.e.distance)}</td><td>${r.g ? fmtDur(r.g) : '–'}<br><span class="muted">${r.gp ? fmtPace(r.gp) + '/km' : ''}</span></td><td><b>${fmtDur(r.a)}</b><br><span class="muted">${r.ap ? fmtPace(r.ap) + '/km' : ''}</span></td><td>${vs}</td></tr>`;
   }).join('');
   if (fin.length && pend.length) html += `<tr><td colspan="6" class="muted" style="text-align:left;font-weight:900">Still to log their time (${pend.length})</td></tr>`;
-  html += pend.map(r => `<tr><td>–</td><td>${who(r)}</td><td>${esc(r.d ? r.d.label : r.e.distance)}</td><td>${r.g ? fmtDur(r.g) : '–'}<br><span class="muted">${r.gp ? fmtPace(r.gp) + '/km' : ''}</span></td><td>${r.e.example ? '–' : `<button type="button" class="btn sm pk" data-log="${esc(r.e.id)}">Log time</button>`}</td><td class="muted">pending</td></tr>`).join('');
+  html += pend.map(r => `<tr><td>–</td><td>${who(r)}</td><td>${esc(r.d ? r.d.label : r.e.distance)}</td><td>${r.g ? fmtDur(r.g) : '–'}<br><span class="muted">${r.gp ? fmtPace(r.gp) + '/km' : ''}</span></td><td>${r.e.example || (r.e.locked && !mineOf(r.e.id)) ? '–' : `<button type="button" class="btn sm pk" data-log="${esc(r.e.id)}">Log time</button>`}</td><td class="muted">pending</td></tr>`).join('');
   $('lb-body').innerHTML = html;
 };
 $('lb-dist').addEventListener('click', e => { const c = e.target.closest('[data-ld]'); if (c) { S.lb.dist = c.dataset.ld; renderBoard(); } });
@@ -433,6 +427,10 @@ $('lb-clubs').addEventListener('click', e => {
 $('r-fast').addEventListener('click', () => { S.lb.rank = 'fastest'; renderBoard(); });
 $('r-pace').addEventListener('click', () => { S.lb.rank = 'pacing'; renderBoard(); });
 $('lb-refresh').addEventListener('click', loadBoard);
+/* entries added from this device: [{ id, key, race }] — the key lets only this device edit or remove them */
+const mine = () => store.get('mine') || [];
+const mineOf = id => mine().find(m => String(m.id) === String(id));
+const newKey = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, '0')).join('');
 const post = body => fetch(lbUrl(S.race), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) });
 $('goal-form').addEventListener('submit', async e => {
   e.preventDefault();
@@ -443,9 +441,10 @@ $('goal-form').addEventListener('submit', async e => {
   if (done && actual <= 0) { toast('Please add your actual finish time.'); return; }
   $('f-go').disabled = true; $('f-go').textContent = 'Saving…';
   try {
-    const id = String(Date.now());
-    await post({ action: 'add_goal', race: S.race.id, id, name, club, distance: S.dist.label, goalTime: fmtHMS(S.goal) });
-    if (done) await post({ action: 'log_actual', race: S.race.id, id, actualTime: fmtHMS(actual) });
+    const id = String(Date.now()), key = newKey();
+    await post({ action: 'add_goal', race: S.race.id, id, key, name, club, distance: S.dist.label, goalTime: fmtHMS(S.goal) });
+    store.set('mine', mine().concat({ id, key, race: S.race.id }));
+    if (done) await post({ action: 'log_actual', race: S.race.id, id, key, actualTime: fmtHMS(actual) });
     if (club) store.set('myclub', club);
     $('f-done-msg').textContent = done ? `${name}'s result is on the leaderboard: ${fmtDur(actual)} for ${S.dist.label} (goal ${fmtDur(S.goal)}). Well run!` : `${name} is locked in for ${S.dist.label} at ${fmtDur(S.goal)}! Set a reminder to log your real time after the race.`;
     $('f-gcal').href = gcalUrl(); $('f-done').hidden = false; $('f-name').value = '';
@@ -453,6 +452,51 @@ $('goal-form').addEventListener('submit', async e => {
   } catch (err) { toast('Could not save. Check your connection and try again.'); }
   finally { $('f-go').disabled = false; $('f-go').textContent = isDone(S.race) ? 'Add my result' : 'Add my goal'; }
 });
+/* ---------- edit or remove my own leaderboard entry ---------- */
+const hmsTo = p => (+$(p + '-h').value || 0) * 3600 + (+$(p + '-m').value || 0) * 60 + (+$(p + '-s').value || 0);
+const hmsFrom = (p, t) => { $(p + '-h').value = t ? Math.floor(t / 3600) : ''; $(p + '-m').value = t ? pad2(Math.floor(t % 3600 / 60)) : ''; $(p + '-s').value = t ? pad2(t % 60) : ''; };
+$('lb-body').addEventListener('click', e => {
+  const b = e.target.closest('[data-edit]'); if (!b) return;
+  const en = S.lb.entries.find(x => String(x.id) === b.dataset.edit); if (!en) return;
+  S.lb.editing = en.id;
+  $('e-name').value = en.name || ''; $('e-club').value = en.club || '';
+  $('e-dist').textContent = en.distance || '';
+  hmsFrom('eg', parseT(en.goalTime)); hmsFrom('ea', parseT(en.actualTime));
+  $('e-msg').textContent = '';
+  openModal('mo-edit');
+});
+const entryCall = async body => { const r = await post(body); const j = await r.json().catch(() => ({})); if (!j.ok) throw new Error(j.error || 'Could not save.'); return j; };
+$('e-save').addEventListener('click', async () => {
+  const m = mineOf(S.lb.editing); if (!m) return;
+  const name = $('e-name').value.trim(), g = hmsTo('eg'), a = hmsTo('ea');
+  if (!name) { $('e-msg').textContent = 'Please add your name.'; return; }
+  if (g <= 0) { $('e-msg').textContent = 'Please add your goal time.'; return; }
+  $('e-save').disabled = true;
+  try { await entryCall({ action: 'edit_entry', id: m.id, key: m.key, name, club: $('e-club').value.trim(), goalTime: fmtHMS(g), actualTime: a > 0 ? fmtHMS(a) : '' }); $('mo-edit').classList.remove('open'); toast('Your entry is updated.'); await loadBoard(); }
+  catch (err) { $('e-msg').textContent = err.message; }
+  finally { $('e-save').disabled = false; }
+});
+$('e-del').addEventListener('click', async () => {
+  const m = mineOf(S.lb.editing); if (!m) return;
+  if (!confirm('Remove yourself from this leaderboard? This cannot be undone.')) return;
+  $('e-del').disabled = true;
+  try { await entryCall({ action: 'delete_entry', id: m.id, key: m.key }); store.set('mine', mine().filter(x => String(x.id) !== String(m.id))); $('mo-edit').classList.remove('open'); toast('You have been removed from the leaderboard.'); await loadBoard(); }
+  catch (err) { $('e-msg').textContent = err.message; }
+  finally { $('e-del').disabled = false; }
+});
+
+/* ---------- delete everything this pacer saved on this device ---------- */
+$('wipe').addEventListener('click', async () => {
+  const list = mine();
+  if (!confirm('Delete your pacer data from this device' + (list.length ? ` and remove your ${list.length} leaderboard ${list.length === 1 ? 'entry' : 'entries'}` : '') + '? This cannot be undone.')) return;
+  for (const m of list) {
+    const race = RACES.find(r => r.id === m.race) || S.race;
+    try { await fetch(lbUrl(race), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'delete_entry', id: m.id, key: m.key }) }); } catch (e) {}
+  }
+  try { Object.keys(localStorage).filter(k => k.indexOf('trp-pacer-') === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  alert('Done. Your pacer data has been deleted from this device.'); location.href = location.pathname + '?race=' + S.race.id;
+});
+
 const reminderUTC = () => { const [h, m] = (S.race.logReminder || '13:00').split(':').map(Number); const d = raceDate() || new Date(); return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), h - 2, m)); };
 const icsStamp = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 const gcalUrl = () => { const a = reminderUTC(), b = new Date(a.getTime() + 30 * 60000); return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent('Log my ' + S.race.name + ' time') + '&dates=' + icsStamp(a) + '/' + icsStamp(b) + '&details=' + encodeURIComponent('Log your actual finish time on the leaderboard: ' + location.href.split('#')[0]) + '&location=' + encodeURIComponent(S.race.venue || ''); };
@@ -474,7 +518,7 @@ $('a-save').addEventListener('click', async () => {
   const t = (+$('a-h').value || 0) * 3600 + (+$('a-m').value || 0) * 60 + (+$('a-s').value || 0);
   if (t <= 0) { toast('Enter your finish time.'); return; }
   $('a-save').disabled = true; $('a-save').textContent = 'Saving…';
-  try { await post({ action: 'log_actual', race: S.race.id, id: S.lb.editing, actualTime: fmtHMS(t) }); $('mo-actual').classList.remove('open'); toast('Time logged. Well run!'); await loadBoard(); }
+  try { await post({ action: 'log_actual', race: S.race.id, id: S.lb.editing, key: (mineOf(S.lb.editing) || {}).key || '', actualTime: fmtHMS(t) }); $('mo-actual').classList.remove('open'); toast('Time logged. Well run!'); await loadBoard(); }
   catch (e) { toast('Could not save. Try again.'); }
   finally { $('a-save').disabled = false; $('a-save').textContent = 'Save my time'; }
 });
