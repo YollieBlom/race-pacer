@@ -7,7 +7,9 @@
  */
 
 const SHEET_NAME = 'Entries';
-const HEADERS = ['id', 'race', 'name', 'club', 'distance', 'goalTime', 'actualTime', 'created', 'updated'];
+const HEADERS = ['id', 'race', 'name', 'club', 'distance', 'goalTime', 'actualTime', 'created', 'updated', 'key'];
+/* 'key' is a private code kept on the runner's own device. Only that device can edit or remove the entry.
+   It is never sent back out with the leaderboard. Entries added before keys existed can only be changed in the sheet. */
 
 function sheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -120,6 +122,14 @@ function clean_(v, max) {
   return String(v == null ? '' : v).replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
 }
 
+/* row number (1-based) of an entry id, or 0 */
+function findRow_(sh, id) {
+  if (!id) return 0;
+  const ids = sh.getRange(1, 1, sh.getLastRow(), 1).getDisplayValues();
+  for (let i = 1; i < ids.length; i++) if (ids[i][0] === id) return i + 1;
+  return 0;
+}
+
 function validTime_(t) {
   return /^\d{1,2}:\d{2}:\d{2}$/.test(t);
 }
@@ -136,14 +146,16 @@ function doGet(e) {
     const r = rows[i];
     if (!r[0]) continue;
     if (race && String(r[1]).toLowerCase() !== race) continue;
-    entries.push({ id: r[0], race: r[1], name: r[2], club: r[3], distance: r[4], goalTime: r[5], actualTime: r[6] });
+    entries.push({ id: r[0], race: r[1], name: r[2], club: r[3], distance: r[4], goalTime: r[5], actualTime: r[6], locked: !!r[9] });   // locked = has a private key (the key itself is never sent)
   }
   return json_({ entries: entries });
 }
 
 /** POST (text/plain JSON)
  *  { action:'add_goal',   race, id, name, club, distance, goalTime }
- *  { action:'log_actual', race, id, actualTime }
+ *  { action:'log_actual', race, id, key, actualTime }
+ *  { action:'edit_entry', id, key, name, club, goalTime, actualTime }   (actualTime '' = clear it)
+ *  { action:'delete_entry', id, key }
  *  { action:'route_request', race, date, distances, place, name, email, note, gpxName, gpx }
  *  { action:'newsletter', name, email, source }
  */
@@ -161,7 +173,8 @@ function doPost(e) {
       const name = clean_(body.name, 40);
       const goal = clean_(body.goalTime, 8);
       if (!race || !name || !validTime_(goal)) return json_({ ok: false, error: 'Missing race, name or goal time.' });
-      sh.appendRow([id, race, name, clean_(body.club, 40), clean_(body.distance, 20), goal, '', now, now]);
+      sh.appendRow([id, race, name, clean_(body.club, 40), clean_(body.distance, 20), goal, '', now, now, clean_(body.key, 40)]);
+      if (sh.getRange(1, 10).getValue() !== 'key') sh.getRange(1, 10).setValue('key').setFontWeight('bold');
       return json_({ ok: true, id: id });
     }
 
@@ -169,15 +182,29 @@ function doPost(e) {
       const id = clean_(body.id, 30);
       const actual = clean_(body.actualTime, 8);
       if (!id || !validTime_(actual)) return json_({ ok: false, error: 'Missing id or time.' });
-      const ids = sh.getRange(1, 1, sh.getLastRow(), 1).getDisplayValues();
-      for (let i = 1; i < ids.length; i++) {
-        if (ids[i][0] === id) {
-          sh.getRange(i + 1, 7).setValue(actual);
-          sh.getRange(i + 1, 9).setValue(now);
-          return json_({ ok: true });
-        }
+      const i = findRow_(sh, id);
+      if (i) {
+        const saved = String(sh.getRange(i, 10).getValue() || '');
+        if (saved && saved !== clean_(body.key, 40)) return json_({ ok: false, error: 'Only the runner who added this entry can log its time.' });
+        sh.getRange(i, 7).setValue(actual);
+        sh.getRange(i, 9).setValue(now);
+        return json_({ ok: true });
       }
       return json_({ ok: false, error: 'Runner not found.' });
+    }
+
+    if (body.action === 'edit_entry' || body.action === 'delete_entry') {
+      const id = clean_(body.id, 30), key = clean_(body.key, 40);
+      const i = findRow_(sh, id);
+      if (!i) return json_({ ok: false, error: 'Entry not found.' });
+      const saved = String(sh.getRange(i, 10).getValue() || '');
+      if (!saved || saved !== key) return json_({ ok: false, error: 'You can only change entries added from this phone or computer.' });
+      if (body.action === 'delete_entry') { sh.deleteRow(i); return json_({ ok: true }); }
+      const name = clean_(body.name, 40), goal = clean_(body.goalTime, 8), actual = clean_(body.actualTime, 8);
+      if (!name || !validTime_(goal) || (actual && !validTime_(actual))) return json_({ ok: false, error: 'Check the name and times.' });
+      sh.getRange(i, 3, 1, 5).setValues([[name, clean_(body.club, 40), sh.getRange(i, 5).getValue(), goal, actual]]);
+      sh.getRange(i, 9).setValue(now);
+      return json_({ ok: true });
     }
 
     if (body.action === 'route_request') {
