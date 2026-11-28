@@ -563,6 +563,47 @@ $('pr-go').addEventListener('click', () => {
   if (!f) { $('pr-err').textContent = 'Add at least one run with a distance and a time (like 8 km in 46:30).'; $('pr-out').hidden = true; return; }
   $('pr-err').textContent = ''; P.on = true; showPred();
 });
+/* runs logged in Playground Quest (main site), borrowed from this device through bridge.html */
+const BRIDGE = window.TRP_BRIDGE || 'https://runnersplayground.com/bridge.html';
+let bridgeFrame = null;
+const questRuns = () => new Promise((res, rej) => {
+  const origin = new URL(BRIDGE).origin;
+  const done = (fn, v) => { clearTimeout(timer); window.removeEventListener('message', onMsg); fn(v); };
+  const onMsg = e => { if (e.origin === origin && e.data && e.data.type === 'trp-runs') done(res, e.data); };
+  const timer = setTimeout(() => done(rej, new Error('timeout')), 5000);
+  window.addEventListener('message', onMsg);
+  const ask = () => bridgeFrame.contentWindow.postMessage({ type: 'trp-get-runs' }, origin);
+  if (bridgeFrame && bridgeFrame.dataset.ready) ask();
+  else {
+    if (!bridgeFrame) { bridgeFrame = document.createElement('iframe'); bridgeFrame.src = BRIDGE; bridgeFrame.title = 'Playground Quest runs'; bridgeFrame.hidden = true; bridgeFrame.setAttribute('aria-hidden', 'true'); bridgeFrame.tabIndex = -1; document.body.appendChild(bridgeFrame); }
+    bridgeFrame.addEventListener('load', () => { bridgeFrame.dataset.ready = '1'; ask(); }, { once: true });
+  }
+});
+$('pr-quest').addEventListener('click', async () => {
+  const info = $('pr-info'), btn = $('pr-quest');
+  $('pr-err').textContent = ''; info.textContent = 'Looking for your Quest runs…'; btn.disabled = true;
+  try {
+    const j = await questRuns();
+    const D = S.dist.km, now = Date.now();
+    const pick = (j.runs || []).map(r => {
+      const age = Math.max(0, (now - new Date(r.d + 'T12:00:00')) / 864e5);
+      return { ...r, score: (EFFORT[r.e] || EFFORT.steady).w / (1 + Math.abs(Math.log(D / r.km))) * (1 - age / 84) };
+    }).sort((a, b) => b.score - a.score).slice(0, 5);
+    if (!pick.length) {
+      info.innerHTML = j.hasQuest
+        ? 'No Quest runs with a <b>time</b> from the last 6 weeks yet. Next time you log a run in <a href="https://runnersplayground.com/quest.html">Playground Quest</a>, add your time and effort.'
+        : 'No Quest runs on this device yet. Log your runs (with your time) in <a href="https://runnersplayground.com/quest.html">Playground Quest</a> and they\'ll show up here.';
+      return;
+    }
+    P.runs = pick.sort((a, b) => b.d.localeCompare(a.d)).map(r => ({ d: String(r.km), t: fmtDur(r.t), e: EFFORT[r.e] ? r.e : 'steady', c: '' }));
+    store.set('runs', P.runs); drawRuns();
+    const guessed = pick.filter(r => !EFFORT[r.e]).length;
+    info.textContent = `Added ${pick.length} recent ${pick.length === 1 ? 'run' : 'runs'} from Playground Quest.` + (guessed ? (guessed === 1 ? ' One had no effort, so we set it to Steady.' : ` ${guessed} had no effort, so we set them to Steady.`) + ' Change it if needed.' : '') + ' Add the climb if you know it.';
+    P.on = true; showPred();
+  } catch (e) {
+    info.textContent = "Couldn't reach your Quest runs on this device. Type your runs in below instead.";
+  } finally { btn.disabled = false; }
+});
 $('pr-use').addEventListener('click', () => { if (!P.res) return; setGoal(P.res); toast('Goal set to ' + fmtDur(P.res) + '. Your splits are ready!'); });
 drawRuns();
 

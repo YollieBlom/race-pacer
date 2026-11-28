@@ -209,9 +209,11 @@ textarea{width:100%;min-height:220px;border:2px solid var(--ink);border-radius:1
    <p class="muted" style="margin:0">Add 2 to 5 runs from the last 6 weeks (from your watch, Strava or memory). We'll predict your time for <b id="pr-race">this race</b>, including its hills and the race-morning heat.</p>
    <div class="pr-runs" id="pr-runs"></div>
    <div class="row" style="margin-top:12px">
+    <button type="button" class="btn sm tq" id="pr-quest">🏃 Use my Quest runs</button>
     <button type="button" class="btn sm" id="pr-add">+ Add a run</button>
     <button type="button" class="btn pk" id="pr-go">Predict my time</button>
    </div>
+   <p class="muted" id="pr-info" aria-live="polite" style="margin:10px 0 0;font-weight:700"></p>
    <p class="muted" id="pr-err" aria-live="polite" style="margin:10px 0 0;color:var(--pk-d);font-weight:800"></p>
    <div class="pr-out" id="pr-out" hidden aria-live="polite">
     <div class="top"><span id="pr-lab">Your predicted time</span><b id="pr-final" class="num">–</b><span id="pr-range"></span></div>
